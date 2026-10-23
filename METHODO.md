@@ -169,3 +169,77 @@ dépassent cette limite dès une seule année en lignes brutes. L'agrégation es
 **côté serveur** via `group_by=insee,fonction,nomen`, ce qui ramène à ~2 000 lignes par
 exercice. `ingest/common.py:ods_records` affiche un avertissement explicite si une requête
 atteint quand même le plafond, pour qu'une troncature silencieuse soit impossible.
+
+---
+
+## Étape 4 — Population, âges, revenus, équipements
+
+### Sources réellement utilisées
+
+| Besoin | Plateforme | Dataset | Couverture obtenue |
+|---|---|---|---|
+| Population légale par commune et par année | data.ofgl.fr | `populations-ofgl-communes` (`pmun`, `ptot`) | **2012-2025, 36 × 14 lignes** |
+| Tranches d'âge larges (< 15, < 20, 20-64, 65+, 80+) | api.insee.fr/melodi | `DS_RP_POPULATION_PRINC` | millésimes de recensement **2012, 2017, 2023** |
+| Population par âge révolu (0, 1, 2… ans) | api.insee.fr/melodi | `DS_RP_TD_POPULATION_AGESEX_PRINC` | millésime **2023** uniquement |
+| Niveau de vie médian, taux de pauvreté | api.insee.fr/melodi | `DS_FILOSOFI_CC` | millésime **2023** uniquement |
+| Écoles, collèges, lycées, crèches, équipements sportifs et culturels | api.insee.fr/melodi | `DS_BPE` | millésime **2025** |
+
+### Pourquoi la population passe par l'OFGL et non par insee.fr
+
+Le brief prévoyait « INSEE recensement (séries historiques par commune) — CSV ». Les
+populations légales sont bien publiées par l'INSEE, mais en **fichiers zip dont l'URL
+contient un identifiant numérique qui change à chaque millésime** : impossible à
+rafraîchir sans surveillance manuelle, donc incompatible avec un cron mensuel.
+Le dataset `populations-ofgl-communes` republie les mêmes populations légales INSEE
+(`pmun` = population municipale, `ptot` = population totale) via une API stable.
+C'est aussi, et c'est le point important, **exactement la population que la DGFiP et
+l'OFGL utilisent au dénominateur de leurs ratios par habitant** : vérifié sur Vanves,
+`ptot` 2025 = 28 794, soit la population affichée dans le BP 2026 de la commune.
+Tous les ratios « par habitant » du projet utilisent `population_totale` (`ptot`).
+
+### Comment la structure par âge est reconstituée par année
+
+Le recensement ne donne la structure par âge qu'aux millésimes 2012, 2017 et 2023, et
+la population par âge révolu qu'au seul millésime 2023. La question 4 demande pourtant un
+dénominateur annuel. Méthode retenue dans `int_structure_age` :
+
+1. **Parts mesurées** aux millésimes de recensement (< 15, < 20, 65+, 80+).
+2. **Interpolation linéaire** de ces parts entre deux millésimes ; part maintenue
+   constante avant 2012 et après 2023.
+3. **Part des 0-10 ans** : mesurée au seul millésime 2023, puis ajustée par l'évolution
+   de la part des moins de 15 ans, elle mesurée aux trois millésimes :
+   `part_0_10(a) = part_0_10(2023) × part_moins_15(a) / part_moins_15(2023)`.
+4. **Effectifs** = part (mesurée ou estimée) × population légale de l'année (mesurée).
+
+La colonne `methode_part_age` indique pour chaque ligne lequel des trois cas s'applique
+(`mesuré (recensement 2017)`, `interpolé entre les recensements 2017 et 2023`,
+`part du recensement 2023 maintenue (année postérieure)`), et `methode_part_0_10` rappelle
+la règle d'ajustement. Le site affiche cette mention. Rien n'est inventé : chaque valeur
+est soit une mesure, soit une transformation déclarée d'une mesure.
+
+Un test dbt (`assert_parts_age_bornees`) vérifie que toutes les parts restent dans [0, 1].
+
+### Limites assumées
+
+| Limite | Conséquence | Traitement |
+|---|---|---|
+| **Filosofi n'existe qu'en millésime 2023** sur l'API Melodi. Les millésimes antérieurs ne sont disponibles qu'en zip sur insee.fr (URL non stable). Testé : `DS_FILOSOFI_CC_2019…2022_CSV_FR` renvoient HTTP 400. | Le revenu médian par UC est une photo 2023, pas une série. | La question 5 affiche son ratio pour la **dernière année disponible** avec le revenu médian 2023 au dénominateur, et la série temporelle montre le numérateur seul (impôts locaux par habitant), qui est, lui, une vraie série. Mentionné sur la page « méthode ». |
+| Les déciles D1/D9, le rapport interdécile et l'indice de Gini sont demandés mais renvoyés **vides** par Filosofi au niveau communal (secret statistique). | Colonnes présentes, valeurs `NULL`. | Non utilisées dans les KPI. |
+| **La BPE n'expose pas de capacité** pour les crèches : seule la mesure `FACILITIES` (nombre d'établissements) est disponible, pas `CAPACITY`. Le brief demandait « nombre de places de crèche ». | Pas de nombre de places. | On publie le **nombre d'établissements d'accueil du jeune enfant** (code BPE `D502`). Écart explicitement signalé sur le site. |
+| La BPE n'est ingérée qu'au dernier millésime (2025). | Pas d'historique d'équipements. | Les équipements servent de contexte, pas de KPI. |
+
+### Vérification des codes BPE
+
+Les métadonnées Melodi ne publient pas les libellés de `FACILITY_TYPE` (aucun endpoint
+`codelist` : testé, HTTP 404). Les codes retenus ont donc été validés par ordre de
+grandeur sur l'ensemble du département :
+
+| Code | Total 92 | Vanves | Malakoff | Boulogne-Billancourt | Lecture |
+|---|---|---|---|---|---|
+| `C1` (sous-domaine) | 693 | 8 | 13 | 39 | nombre d'écoles — cohérent avec ~700 écoles dans le 92 |
+| `C2` (sous-domaine) | 155 | 2 | 3 | 10 | collèges — cohérent avec ~155 collèges dans le 92 |
+| `D502` | 583 | 7 | 6 | 52 | établissements d'accueil du jeune enfant |
+
+Pour les écoles, collèges et lycées on utilise le **sous-domaine** (`FACILITY_TYPE = '_T'`),
+plus stable d'un millésime à l'autre que les types fins. Les crèches n'ont pas de
+sous-domaine dédié (`D5` mélange plusieurs publics), d'où le recours au type `D502`.

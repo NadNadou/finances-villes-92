@@ -52,6 +52,89 @@
     "nb_communes": 36,
     "nb_ept": 4
   },
+  "insee_age_detail": {
+    "dataset": "DS_RP_TD_POPULATION_AGESEX_PRINC",
+    "filtre": "SEX=_T, population par âge révolu",
+    "ingere_le": "2026-10-24 00:54:16",
+    "millesimes": [
+      2023
+    ],
+    "nb_lignes": 3672,
+    "plateforme": "api.insee.fr/melodi"
+  },
+  "insee_age_tranches": {
+    "dataset": "DS_RP_POPULATION_PRINC",
+    "filtre": "SEX=_T, AGE dans _T, Y_LT15, Y_LT20, Y20T64, Y55T64, Y65T79, Y_GE65, Y_GE80",
+    "ingere_le": "2026-10-24 00:54:15",
+    "millesimes": [
+      2012,
+      2017,
+      2023
+    ],
+    "nb_lignes": 864,
+    "plateforme": "api.insee.fr/melodi"
+  },
+  "insee_equipements": {
+    "dataset": "DS_BPE",
+    "ingere_le": "2026-10-24 00:54:18",
+    "limite": "Seule la mesure FACILITIES est disponible : pas de capacité (places de crèche).",
+    "millesimes": [
+      2025
+    ],
+    "nb_lignes": 209,
+    "plateforme": "api.insee.fr/melodi",
+    "sous_domaines": {
+      "C1": "Écoles (maternelles, élémentaires, primaires)",
+      "C2": "Collèges",
+      "C3": "Lycées",
+      "F1": "Équipements sportifs",
+      "F3": "Équipements culturels et de loisirs"
+    },
+    "types": {
+      "D502": "Établissements d'accueil du jeune enfant (crèches)"
+    }
+  },
+  "insee_filosofi": {
+    "dataset": "DS_FILOSOFI_CC",
+    "ingere_le": "2026-10-24 00:54:17",
+    "limite": "Melodi n'expose que le millésime le plus récent de Filosofi à la commune.",
+    "mesures": {
+      "D1_SL": "1er décile du niveau de vie (€/an par UC)",
+      "D9_SL": "9e décile du niveau de vie (€/an par UC)",
+      "GI_SL": "Indice de Gini du niveau de vie",
+      "IR_D9_D1_SL": "Rapport interdécile D9/D1",
+      "MED_SL": "Niveau de vie médian (€/an par unité de consommation)",
+      "PR_MD60": "Taux de pauvreté au seuil de 60 % (%)"
+    },
+    "millesimes": [
+      2023
+    ],
+    "nb_lignes": 216,
+    "plateforme": "api.insee.fr/melodi"
+  },
+  "insee_population_annee": {
+    "champs": "pmun = population municipale, ptot = population totale",
+    "dataset": "populations-ofgl-communes",
+    "exercices": [
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "ingere_le": "2026-10-24 00:54:15",
+    "nb_lignes": 504,
+    "plateforme": "data.ofgl.fr (republication des populations légales INSEE)"
+  },
   "ofgl_commune_agregat": {
     "dataset": "ofgl-base-communes",
     "exercices": [
