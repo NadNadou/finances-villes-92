@@ -57,9 +57,15 @@ jobs:
         working-directory: site
         run: npm ci --no-audit --no-fund
 
+      # `evidence build` ne lit pas les sources tout seul : sans ce `sources`, le site
+      # se construit sans données (il log « No sources found » et déploie des pages vides).
+      - name: Évaluer les sources Evidence
+        working-directory: site
+        run: npx evidence sources
+
       - name: Build Evidence
         working-directory: site
-        run: npx evidence build
+        run: npx evidence build:strict
 
       - name: Commiter les données rafraîchies
         if: github.event_name == 'schedule' || inputs.ingest == true
