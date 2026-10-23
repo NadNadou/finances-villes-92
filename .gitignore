@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+finances.duckdb
+finances.duckdb.wal
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+logs/
+site/node_modules/
+site/.evidence/
+site/build/
+site/.svelte-kit/
+nuit-*.log
+.DS_Store

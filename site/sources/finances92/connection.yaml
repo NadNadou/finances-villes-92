@@ -1,0 +1,6 @@
+# Les marts sont des fichiers parquet produits par dbt dans data/marts/.
+# DuckDB en mémoire + read_parquet : aucun fichier de base à versionner.
+name: finances92
+type: duckdb
+options:
+  filename: ":memory:"

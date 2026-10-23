@@ -1,0 +1,11 @@
+# Configuration Evidence — Finances des villes 92
+title: Finances des villes 92
+
+plugins:
+  components:
+    "@evidence-dev/core-components": {}
+  datasources:
+    "@evidence-dev/duckdb": {}
+
+deployment:
+  basePath: /finances-villes-92

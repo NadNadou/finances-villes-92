@@ -1,0 +1,28 @@
+name: finances92
+version: "0.1.0"
+config-version: 2
+
+profile: finances92
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+seed-paths: ["seeds"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  annee_min: 2015
+  annee_max: 2025
+  # Duo mis en avant par défaut sur le site
+  ville_a: "92075"   # Vanves
+  ville_b: "92046"   # Malakoff
+
+models:
+  finances92:
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: table
+    marts:
+      +materialized: table

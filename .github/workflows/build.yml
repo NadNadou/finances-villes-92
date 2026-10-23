@@ -1,0 +1,89 @@
+name: build
+
+on:
+  schedule:
+    # Le 5 de chaque mois à 04:17 UTC (les millésimes DGFiP/OFGL bougent peu souvent)
+    - cron: "17 4 5 * *"
+  workflow_dispatch:
+    inputs:
+      ingest:
+        description: "Relancer l'ingestion des sources (sinon on réutilise data/raw commité)"
+        type: boolean
+        default: true
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Installer les dépendances Python
+        run: pip install -r requirements.txt
+
+      - name: Ingestion des sources
+        if: github.event_name == 'schedule' || inputs.ingest == true
+        run: python -m ingest.run_all
+        continue-on-error: true
+
+      - name: dbt build
+        working-directory: dbt
+        run: |
+          dbt deps --profiles-dir . || true
+          dbt build --profiles-dir .
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Installer le site
+        working-directory: site
+        run: npm ci --no-audit --no-fund
+
+      - name: Build Evidence
+        working-directory: site
+        run: npx evidence build
+
+      - name: Commiter les données rafraîchies
+        if: github.event_name == 'schedule' || inputs.ingest == true
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/raw data/marts
+          if git diff --cached --quiet; then
+            echo "Aucune donnée modifiée."
+          else
+            git commit -m "chore(data): rafraîchissement automatique des sources"
+            git push
+          fi
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

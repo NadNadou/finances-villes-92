@@ -1,0 +1,9 @@
+finances92:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "../finances.duckdb"
+      threads: 4
+      extensions:
+        - parquet
