@@ -23,6 +23,32 @@
     "unite_rm": "pourcentage (moyenne de la strate)",
     "url": "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/<dataset>/records"
   },
+  "dgfip_flux_ept": {
+    "comptes": {
+      "65541": "fcct",
+      "65561": "fcct",
+      "73211": "attribution_compensation",
+      "73212": "attribution_compensation"
+    },
+    "datasets": {
+      "2015": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec2",
+      "2016": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec1",
+      "2017": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec-",
+      "2018": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec0",
+      "2019": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec6",
+      "2020": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec7",
+      "2021": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec8",
+      "2022": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-2022",
+      "2023": "balances-comptables-des-collectivites-et-des-epl-avec-fonction-2023",
+      "2024": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec-la-presentation-croisee-nature-fonction-2024",
+      "2025": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec-la-presentation-croisee-nature-fonction-2025"
+    },
+    "filtre": "ndept=\"092\" and categ=\"Commune\" and cbudg=\"1\" and compte in (65561, 73211)",
+    "ingere_le": "2026-10-24 01:30:47",
+    "nb_lignes": 671,
+    "unite": "euros",
+    "url": "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/<dataset>/records"
+  },
   "dgfip_fonction_commune": {
     "datasets": {
       "2015": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec2",

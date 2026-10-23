@@ -413,3 +413,161 @@ des écarts :
   participations », mais aucune combinaison testée ne tombe exactement sur cette valeur
   (DGF + autres dotations = 163,6 €/hab ; moyenne de strate de la DGF = 205,6 €/hab).
   À vérifier sur le document d'origine, cf. `RAPPORT.md`.
+
+---
+
+## Étape 7 — Contrôle qualité
+
+### Pourquoi le contrôle n'est pas fait contre les fiches impots.gouv.fr/cll
+
+Le brief demandait de comparer 2023 ou 2024 avec les fiches « comptes individuels des
+collectivités » de `impots.gouv.fr/cll`. **Ces fiches sont générées depuis le jeu de données
+que nous ingérons déjà** (« Comptes individuels des communes — fichier global », DGFiP,
+sur data.economie.gouv.fr). Les comparer reviendrait à comparer une source à elle-même :
+l'écart serait nul par construction et ne prouverait rien.
+
+Accessoirement, `cll` est une application Spring WebFlow à état de session (vérifié :
+`/cll/` redirige vers `flux.ex?_flowId=accueilcclloc-flow`, les URL directes renvoient 404),
+donc ni interrogeable de façon reproductible ni compatible avec un cron mensuel.
+
+Trois contrôles ont été mis en place à la place, du plus exigeant au plus ponctuel.
+
+### Contrôle 1 — nos ratios contre les ratios légaux publiés par la DGFiP
+
+Décrit à l'étape 5. Aucun ratio publié n'est repris tel quel : tous sont recalculés depuis
+le montant et la population. **396 points par ratio** (36 communes × 11 exercices).
+Écart relatif maximal : 0,0008 % sur les dépenses réelles de fonctionnement, 0,005 % sur
+l'équipement, 0,036 % sur l'encours de dette. Largement sous les 2 % demandés.
+
+### Contrôle 2 — nos chiffres contre un document budgétaire communal
+
+Décrit à l'étape 5 (BP 2026 de Vanves). Quatre ratios sur huit dans la tolérance de ±15 %,
+dont la population et l'encours de dette par habitant exactement sur la valeur du document ;
+trois écarts expliqués ; un écart non résolu (la DGF).
+
+### Contrôle 3 — les deux éditeurs publics confrontés l'un à l'autre
+
+C'est le contrôle réellement indépendant, et celui qui a été le plus instructif. Les comptes
+des communes sont publiés par **deux éditeurs distincts** travaillant sur les mêmes comptes
+de gestion, avec des chaînes de traitement et des définitions d'agrégats propres :
+
+- la **DGFiP** sur data.economie.gouv.fr (notre source) ;
+- l'**OFGL** sur data.ofgl.fr.
+
+`fct_controle_sources` les confronte sur les 36 communes et les 8 exercices couverts par les
+deux, soit **288 points par concept**. Le test `assert_coherence_dgfip_ofgl` échoue si un
+concept censé être défini de la même façon s'écarte de plus de 0,1 % **et** de plus de
+1 000 € (les comptes individuels DGFiP sont publiés en milliers d'euros, donc arrondis).
+
+**Les quatre concepts à définition commune coïncident à 5 € près sur 288 points :**
+
+| Concept | Points | Écart relatif max | Écart absolu max |
+|---|---|---|---|
+| Charges de personnel | 288 | 0,0012 % | 5 € |
+| Encours de dette | 288 | 0,0011 % | 5 € |
+| Dotation globale de fonctionnement | 259 | 0,037 % | 5 € |
+| Population totale | 288 | **0,000 %** | **0 €** |
+
+Les 5 € résiduels sont exactement l'arrondi au millier d'euros de la publication DGFiP.
+
+Détail sur **Vanves, Malakoff et Boulogne-Billancourt** pour l'exercice 2024 — la troisième
+ville a été choisie parce que c'est le cas atypique du département (elle vote son budget par
+fonction, cf. étape 5) :
+
+| Ville | Concept | DGFiP | OFGL | Écart |
+|---|---|---|---|---|
+| Vanves | Charges de personnel | 26 190 140 € | 26 190 139 € | 0,85 € |
+| Vanves | Encours de dette | 26 829 290 € | 26 829 287 € | 2,95 € |
+| Vanves | DGF | 1 466 060 € | 1 466 056 € | 4,00 € |
+| Vanves | Population | 28 303 | 28 303 | 0 |
+| Malakoff | Charges de personnel | 31 520 630 € | 31 520 625 € | 4,64 € |
+| Malakoff | Encours de dette | 35 163 380 € | 35 163 383 € | −3,40 € |
+| Malakoff | DGF | 3 381 650 € | 3 381 648 € | 2,00 € |
+| Malakoff | Population | 30 470 | 30 470 | 0 |
+| Boulogne-Billancourt | Charges de personnel | 98 212 240 € | 98 212 243 € | −3,08 € |
+| Boulogne-Billancourt | Encours de dette | 98 476 940 € | 98 476 936 € | 4,46 € |
+| Boulogne-Billancourt | DGF | 52 360 € | 52 361 € | −0,84 € |
+| Boulogne-Billancourt | Population | 120 954 | 120 954 | 0 |
+
+### Les sept divergences de définition, chacune avec sa cause établie
+
+Les autres concepts divergent. **Chaque cause a été établie à partir des formules que l'OFGL
+publie lui-même** (dataset `methodologie-ofgl-formules-des-agregats-financiers`), pas
+supposée. Les motifs sont stockés dans la colonne `motif` du mart et affichés sur le site.
+
+| Concept | Écart relatif max | Cause |
+|---|---|---|
+| Dépenses d'équipement | 47,6 % | Formule OFGL : `D20 + D21 + D23 − D204 − D2324 − C236 − C237 − C238`. Elle retire les subventions d'équipement versées (qu'on rajoute pour comparer) **mais aussi les avances versées sur commandes d'immobilisations**, que le `equip` DGFiP conserve. Le ratio légal est celui de la DGFiP : c'est lui qu'on publie. |
+| Épargne brute | 154,8 % | L'OFGL calcule `recettes de fonctionnement − dépenses de fonctionnement` avec ses propres définitions étroites ; la DGFiP publie une capacité d'autofinancement issue du compte de résultat. Deux constructions distinctes du même concept. |
+| Annuité de la dette | 152,9 % | Formule OFGL : `remboursements d'emprunts hors gestion active de la dette + charges financières`. Le `annu` DGFiP inclut les mouvements de gestion active (tirages et remboursements de lignes de trésorerie), d'où des écarts très larges sur les communes qui en usent. |
+| Charges financières | 882,2 % sur 7 points / 288 | Même chapitre 66, mais l'OFGL en exclut les opérations d'ordre. **Vérifié au centime sur Antony 2021** : le compte 6681 (indemnités de renégociation de dette) y vaut 1 000 000 €, intégralement en opérations d'ordre ; 2 970 319 − 1 000 000 = 1 970 319, soit exactement la valeur OFGL. Ne concerne que les communes ayant renégocié leur dette. |
+| Dépenses de fonctionnement | 163,5 % | Voir ci-dessous : l'OFGL retranche le FCCT pour les communes de la Métropole du Grand Paris. |
+| Recettes de fonctionnement | 127,9 % | Même raison, en miroir. |
+| Impôts locaux | 72,7 % | L'agrégat OFGL est une ressource fiscale **nette** : il ajoute la fiscalité reversée (chapitre 732) et retranche le FCCT. Le `impo1` DGFiP est le produit des contributions directes (chapitre 731), c'est-à-dire ce que paient effectivement les contribuables locaux — la définition demandée par la question 5. |
+
+### La découverte qui a changé un calcul : le FCCT
+
+En lisant les formules de l'OFGL, une mention a arrêté l'enquête :
+
+> *formule applicable aux communes **à l'exclusion des communes appartenant à la Métropole
+> du Grand Paris***
+
+Les 36 communes du 92 en font toutes partie. L'OFGL publie donc, pour elles, une formule
+spécifique des dépenses et des recettes de fonctionnement, qui **retranche le compte
+65561 — la contribution au fonds de compensation des charges territoriales (FCCT)**, c'est-
+à-dire ce que la commune verse à son EPT.
+
+Conséquence directe pour ce projet : **le périmètre consolidé « commune + part d'EPT »
+comptait ce transfert deux fois**, une fois en dépense de la commune et une fois dans les
+dépenses de l'EPT qu'il finance. Le FCCT a donc été ingéré (`ingest/dgfip.py:flux_ept`) et
+neutralisé dans `fct_finances_consolide`.
+
+**Le compte n'est pas le même selon la nomenclature : 65541 en M14, 65561 en M57.**
+Repéré parce que le FCCT ressortait à zéro pour les communes encore en M14 (Vanves 2023,
+par exemple). Piège voisin évité : le compte **65568** (« autres contributions ») porte des
+cotisations à des syndicats et n'est **pas** un flux vers l'EPT — Colombes y inscrit 6,2 M€
+en 2024 alors que son EPT ne perçoit presque pas de FCCT.
+
+**Contrôle de cohérence croisée** — la somme des FCCT versés par les communes d'un EPT doit
+égaler la « fiscalité reversée » que l'OFGL inscrit en recette de cet EPT :
+
+| EPT | FCCT 2024 versé par les communes du 92 | « Fiscalité reversée » OFGL de l'EPT | Écart |
+|---|---|---|---|
+| T2 Vallée Sud – Grand Paris | 108 569 800 € | 108 569 800 € | **0,00 %** |
+| T3 Grand Paris Seine Ouest | 125 636 070 € | 125 193 594 € | 0,35 % |
+| T4 Paris Ouest La Défense | 170 728 021 € | 170 924 629 € | 0,12 % |
+| T5 Boucle Nord de Seine | 958 050 € | 1 160 251 € | écart = Argenteuil (202 201 €), hors département |
+
+Le même contrôle sur 2023, avec le compte M14 `65541` ajouté : T2 104,70 M€ contre
+104,69 M€, T3 123,54 contre 122,66, T4 168,51 contre 168,15.
+
+Effet mesuré sur le KPI : les dépenses de fonctionnement consolidées de Vanves en 2024
+passent de 2 254 €/hab (avec double compte) à **2 002 €/hab** (FCCT neutralisé), soit
+−11 %. Pour Malakoff 2024, de 2 517 à **2 211 €/hab**.
+
+**Ce qui n'est PAS neutralisé, et pourquoi** : l'attribution de compensation (compte 73211)
+est versée par la **Métropole du Grand Paris**, extérieure au couple commune + EPT. C'est
+une ressource externe, qui reste. Mesurée aussi, pour pouvoir le montrer sur le site :
+Neuilly-sur-Seine, Levallois-Perret et La Garenne-Colombes ne versent **aucun** FCCT et ne
+font que recevoir l'attribution de compensation (vérifié sur les balances 2024 : Neuilly
+43,7 M€ au crédit du 73211, aucun débit en 65541 ni 65561).
+
+**Ce qui n'avait pas besoin d'être corrigé** : les dépenses d'équipement et l'encours de
+dette ne portent pas de flux croisé commune/EPT ; l'épargne brute consolidée est déjà juste
+par construction, le FCCT diminuant celle de la commune et augmentant celle de l'EPT du même
+montant. Et aucun des 6 KPI du brief n'était faux : le double compte n'affectait que les
+indicateurs de contexte (dépenses et recettes de fonctionnement par habitant, part du
+personnel). La correction a quand même été faite, parce que ces indicateurs sont affichés.
+
+### Verdict de l'étape 7
+
+Critère demandé : « écart < 2 % sur les ratios légaux, ou écart expliqué ».
+
+- Ratios légaux recalculés contre ratios légaux publiés : **< 0,04 %** sur 396 points par
+  ratio. ✅
+- Concepts à définition commune, DGFiP contre OFGL : **< 0,04 %** et **< 5 €** sur
+  288 points par concept, pour Vanves, Malakoff, Boulogne-Billancourt et les 33 autres. ✅
+- Sept divergences de définition : **chacune expliquée par la formule publiée de l'éditeur**,
+  dont deux vérifiées au centime (charges financières d'Antony 2021, FCCT de T2 2024). ✅
+- Un écart non résolu : la DGF du BP 2026 de Vanves. ❌ — signalé comme tel, à vérifier sur
+  le document d'origine.

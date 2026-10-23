@@ -32,3 +32,8 @@ sources:
         description: Niveau de vie médian, taux de pauvreté, déciles (Filosofi 2023).
       - name: insee_equipements
         description: "Nombre d'équipements par commune (BPE 2025) : écoles, collèges, crèches…"
+      - name: dgfip_flux_ept
+        description: >
+          Flux commune / intercommunalité extraits des balances : compte 65561 (FCCT versé
+          à l'EPT, transfert interne) et 73211 (attribution de compensation reçue de la
+          Métropole, ressource externe). En euros.

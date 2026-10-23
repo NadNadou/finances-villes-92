@@ -53,6 +53,29 @@ quart de sa population. La part de T5 qui revient à Argenteuil n'est attribuée
 commune du 92 — c'est le résultat correct, et c'est pour cela que le dénominateur du prorata
 est la population de l'EPT entier, non la somme de ses communes du 92.
 
+**Le transfert entre la commune et son EPT est neutralisé.** Chaque commune verse à son
+territoire une contribution au fonds de compensation des charges territoriales (FCCT,
+compte 65561 de la comptabilité publique, 65541 avant le passage à la nomenclature M57).
+Cette somme est une dépense réelle de la mairie — elle figure donc au périmètre « la mairie
+seule », où elle a toute sa place — mais elle finance aussi les dépenses de l'EPT.
+L'additionner telle quelle compterait deux fois le même euro. Pour Vanves en 2024, le FCCT
+vaut 7,1 M€ sur 49,7 M€ de dépenses de fonctionnement, soit 14 % : l'enjeu n'est pas
+anecdotique. Le périmètre consolidé le retire donc du côté de la commune.
+
+Vérification : la somme des FCCT versés par les communes d'un même EPT égale la
+« fiscalité reversée » que l'OFGL inscrit en recette de cet EPT. Pour T2 Vallée Sud – Grand
+Paris en 2024, les deux valent **108 569 800 €**, au centime près. L'OFGL fait d'ailleurs
+la même opération dans ses propres agrégats : ses formules publiées retranchent le compte
+65561 des dépenses de fonctionnement **pour les communes de la Métropole du Grand Paris, et
+pour elles seules**.
+
+Ne pas confondre avec l'**attribution de compensation** (compte 73211), qui va dans l'autre
+sens : c'est la Métropole du Grand Paris qui la verse à la commune, en échange de la
+fiscalité économique qu'elle perçoit à sa place. La Métropole étant extérieure au couple
+commune + EPT, cette ressource n'est pas neutralisée. Certaines communes à fortes bases
+économiques — Neuilly-sur-Seine, Levallois-Perret, La Garenne-Colombes — ne versent aucun
+FCCT et ne font que recevoir l'attribution de compensation.
+
 Enfin, **la part d'EPT n'existe pas avant 2018** : les EPT ont été créés en 2016, et l'API de
 l'Observatoire des finances locales ne publie plus les exercices 2016 et 2017. Sur ces années,
 le périmètre consolidé affiche les valeurs de la commune seule.
@@ -163,6 +186,8 @@ group by 1
 order by 1
 ```
 
+### Premier contrôle : les ratios légaux de la DGFiP
+
 Chaque indicateur du site est **recalculé** à partir du montant brut et de la population :
 aucun ratio publié n'est repris tel quel. Cela permet de confronter nos résultats aux ratios
 légaux que la DGFiP publie elle-même, sur les 36 communes et les 11 exercices, soit
@@ -180,6 +205,61 @@ fonctionnement, où un seul point atteint 3,7 % : Puteaux en 2020, qui ne touche
 0,13 € par habitant de DGF — l'arrondi au centime y suffit à faire un gros pourcentage.
 L'écart absolu maximal sur ce ratio est de cinq millièmes d'euro par habitant.
 
+### Troisième contrôle : les deux éditeurs publics, confrontés
+
+```sql controle_croise
+select
+    libelle as concept,
+    attendu_identique,
+    motif,
+    count(*) as points_compares,
+    max(abs(ecart_pct)) as ecart_relatif_max_pct,
+    max(abs(ecart_absolu)) as ecart_absolu_max
+from finances92.controle_sources
+where valeur_dgfip is not null and valeur_ofgl is not null
+group by 1, 2, 3
+order by attendu_identique desc, libelle
+```
+
+Les comptes des communes sont publiés par **deux éditeurs indépendants** : la DGFiP, sur
+data.economie.gouv.fr, et l'Observatoire des finances et de la gestion publique locales,
+sur data.ofgl.fr. Les deux travaillent sur les mêmes comptes de gestion, avec des chaînes
+de traitement et des définitions d'agrégats distinctes. Les confronter sur les
+36 communes et les 8 exercices couverts par les deux, soit 288 points par concept, est le
+contrôle le plus exigeant qu'on puisse faire sans données supplémentaires.
+
+<DataTable data={controle_croise} rows=12>
+    <Column id=concept title="Concept" wrap=true />
+    <Column id=attendu_identique title="Même définition ?" align=center />
+    <Column id=points_compares title="Points" fmt='#,##0' />
+    <Column id=ecart_relatif_max_pct title="Écart relatif max" fmt='#,##0.00"%"' />
+    <Column id=ecart_absolu_max title="Écart absolu max" fmt='#,##0 "€"' />
+</DataTable>
+
+Les quatre concepts dont les deux éditeurs publient **la même définition** coïncident à
+5 € près sur 288 points : charges de personnel, encours de dette, dotation globale de
+fonctionnement et population. Les 5 € résiduels viennent de l'arrondi au millier d'euros
+des comptes individuels DGFiP.
+
+Les sept autres divergent, et **chaque divergence a une cause identifiée**, établie à
+partir des formules que l'OFGL publie lui-même, pas supposée :
+
+<Details title="Les sept écarts de définition, et leur cause">
+
+<DataTable data={controle_croise} rows=12>
+    <Column id=concept title="Concept" wrap=true />
+    <Column id=motif title="Cause de l'écart" wrap=true />
+</DataTable>
+
+Le plus instructif pour les Hauts-de-Seine est celui des dépenses de fonctionnement :
+**pour les communes de la Métropole du Grand Paris, et pour elles seules, l'OFGL retranche
+le compte 65561** — la contribution au fonds de compensation des charges territoriales.
+Autrement dit, l'éditeur public a lui aussi jugé nécessaire de neutraliser le transfert de
+la commune vers son territoire. C'est exactement ce que fait le périmètre consolidé de ce
+site.
+
+</Details>
+
 ```sql controle_doc
 select nom_commune, annee, libelle as ratio, unite,
        valeur_reference, valeur_calculee, ecart_pct, comparable, commentaire
@@ -188,8 +268,9 @@ where reference = 'document budgétaire'
 order by comparable desc, abs(ecart_pct)
 ```
 
-Second contrôle, externe celui-là : les ratios légaux publiés par Vanves dans son budget
-primitif 2026.
+### Deuxième contrôle : un document budgétaire communal
+
+Les ratios légaux publiés par Vanves dans son budget primitif 2026.
 
 <DataTable data={controle_doc} rows=10>
     <Column id=ratio title="Ratio" wrap=true />

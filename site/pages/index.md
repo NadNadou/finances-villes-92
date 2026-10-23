@@ -52,7 +52,7 @@ select nom_commune, annee, perimetre,
        capacite_desendettement_annees, depenses_enfance_par_enfant,
        impots_locaux_hab, poids_impots_sur_revenu_pct, potentiel_fiscal_hab,
        depenses_fonctionnement_hab, encours_dette_hab, part_personnel_pct,
-       part_epargne_brute_pct
+       part_epargne_brute_pct, fcct_hab, attribution_compensation_hab
 from finances92.finances
 where code_insee in ('${inputs.ville_a.value}', '${inputs.ville_b.value}')
   and perimetre = '${inputs.perimetre}'
@@ -446,6 +446,61 @@ beaucoup n'a pas vraiment le choix.
 
 ---
 
+## Ce qui circule entre la mairie et son territoire
+
+Deux flux expliquent une bonne part de l'écart entre les deux périmètres, et ils ne se
+lisent nulle part dans les ratios habituels.
+
+<Grid cols=2>
+<BigValue
+    data={a}
+    value=fcct_hab
+    title="{inputs.ville_a.label} verse à son EPT"
+    fmt='#,##0 "€/hab"'
+    comparison=attribution_compensation_hab
+    comparisonTitle="et reçoit de la Métropole"
+    comparisonFmt='#,##0 "€/hab"'
+    comparisonDelta=false
+/>
+<BigValue
+    data={b}
+    value=fcct_hab
+    title="{inputs.ville_b.label} verse à son EPT"
+    fmt='#,##0 "€/hab"'
+    comparison=attribution_compensation_hab
+    comparisonTitle="et reçoit de la Métropole"
+    comparisonFmt='#,##0 "€/hab"'
+    comparisonDelta=false
+/>
+</Grid>
+
+<LineChart
+    data={serie_duo}
+    x=annee
+    y=fcct_hab
+    series=nom_commune
+    yAxisTitle="€ par habitant"
+    title="Contribution versée par la commune à son territoire (FCCT)"
+    yFmt='#,##0'
+    xFmt='0'
+    markers=true
+/>
+
+Le **fonds de compensation des charges territoriales** est ce que la commune verse chaque
+année à son établissement public territorial, en échange des compétences que celui-ci a
+reprises. C'est une dépense réelle de la mairie — elle figure donc dans le périmètre
+« la mairie seule » — mais c'est aussi ce qui finance les dépenses de l'EPT. Le périmètre
+consolidé la neutralise, sans quoi la même somme serait comptée deux fois.
+
+L'**attribution de compensation** va dans l'autre sens : c'est la Métropole du Grand Paris
+qui la verse à la commune, en contrepartie de la fiscalité économique qu'elle perçoit
+désormais à sa place. La Métropole étant extérieure au couple commune + EPT, cette
+ressource n'est pas neutralisée. Certaines communes très dotées en bases économiques, comme
+Neuilly-sur-Seine ou Levallois-Perret, ne versent aucun FCCT et ne reçoivent que
+l'attribution de compensation.
+
+---
+
 ## Le détail, si vous voulez creuser
 
 <Details title="Tous les indicateurs, année par année">
@@ -462,6 +517,7 @@ beaucoup n'a pas vraiment le choix.
     <Column id=impots_locaux_hab title="Impôts locaux" fmt='#,##0 "€/hab"' />
     <Column id=potentiel_fiscal_hab title="Potentiel fiscal" fmt='#,##0 "€/hab"' />
     <Column id=depenses_enfance_par_enfant title="Enfance" fmt='#,##0 "€/enfant"' />
+    <Column id=fcct_hab title="Versé à l'EPT" fmt='#,##0 "€/hab"' />
 </DataTable>
 
 </Details>

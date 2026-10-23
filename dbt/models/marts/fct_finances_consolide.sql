@@ -12,6 +12,21 @@
 -- affiche l'avertissement correspondant plutôt que de laisser croire à un périmètre
 -- consolidé complet.
 
+-- **Le FCCT est neutralisé sur les dépenses de fonctionnement.** La contribution au
+-- fonds de compensation des charges territoriales (compte 65561) est ce que la commune
+-- verse à son EPT : elle figure en dépense chez la commune ET finance les dépenses de
+-- l'EPT. L'additionner telle quelle compterait deux fois la même somme. Pour Vanves 2024,
+-- le FCCT vaut 7,14 M€ sur 49,7 M€ de dépenses de fonctionnement, soit 14 % — l'écart
+-- n'est pas anecdotique. Mesure de contrôle : la somme des FCCT versés par les communes
+-- d'un EPT égale au centime la « fiscalité reversée » que l'OFGL inscrit en recette de cet
+-- EPT (T2 Vallée Sud 2024 : 108 569 800 € des deux côtés).
+--
+-- L'attribution de compensation (compte 73211) n'est **pas** neutralisée : elle est versée
+-- par la Métropole du Grand Paris, qui est extérieure au couple commune + EPT.
+--
+-- Les autres agrégats ne sont pas concernés : les dépenses d'équipement et l'encours de
+-- dette ne portent pas de flux croisé, et l'épargne brute est déjà nette par construction
+-- (le FCCT diminue celle de la commune et augmente celle de l'EPT, la somme est juste).
 with base as (
     select
         *,
@@ -19,7 +34,8 @@ with base as (
         encours_dette           + coalesce(ept_encours_dette, 0)           as cons_dette,
         epargne_brute           + coalesce(ept_epargne_brute, 0)           as cons_epargne,
         impots_locaux           + coalesce(ept_impots_locaux, 0)           as cons_impots,
-        depenses_fonctionnement + coalesce(ept_depenses_fonctionnement, 0) as cons_depenses_fonct,
+        depenses_fonctionnement - case when ept_disponible then fcct else 0 end
+                                + coalesce(ept_depenses_fonctionnement, 0) as cons_depenses_fonct,
         recettes_fonctionnement + coalesce(ept_recettes_fonctionnement, 0) as cons_recettes_fonct,
         charges_personnel       + coalesce(ept_charges_personnel, 0)       as cons_personnel,
         annuite_dette           + coalesce(ept_annuite_dette, 0)           as cons_annuite
@@ -48,7 +64,9 @@ kpi as (
             annuite        = 'cons_annuite'
         ) }},
 
-        dgf / nullif(population_totale, 0) as dgf_hab,
+        dgf  / nullif(population_totale, 0) as dgf_hab,
+        fcct / nullif(population_totale, 0) as fcct_hab,
+        attribution_compensation / nullif(population_totale, 0) as attribution_compensation_hab,
         niveau_vie_median,
         taux_pauvrete,
         millesime_filosofi,

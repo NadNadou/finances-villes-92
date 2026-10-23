@@ -15,9 +15,21 @@ Deux jeux :
    Sert à la question 3 « où va l'argent » : on agrège les comptes de classe 6 par fonction
    M14/M57.
 
+3. **Flux internes commune / EPT**, extraits des mêmes balances. Le compte 65561
+   (« contributions au fonds de compensation des charges territoriales », FCCT) porte ce
+   qu'une commune de la Métropole du Grand Paris verse à son établissement public
+   territorial. C'est un transfert interne au couple commune + EPT : sans le neutraliser,
+   le périmètre consolidé le compterait deux fois. Vérifié sur 2024 : la somme des FCCT
+   versés par les communes d'un EPT égale au centime la « fiscalité reversée » que l'OFGL
+   attribue en recette à cet EPT (T2 Vallée Sud : 108 569 800 € des deux côtés).
+   Le compte 73211 (attribution de compensation reçue) est également capté : c'est une
+   ressource versée par la Métropole, donc extérieure au couple commune + EPT, et elle ne
+   doit PAS être neutralisée. On la mesure pour pouvoir le montrer.
+
 Sorties :
   data/raw/dgfip_comptes_commune.parquet
   data/raw/dgfip_fonction_commune.parquet
+  data/raw/dgfip_flux_ept.parquet
 """
 
 from __future__ import annotations
@@ -238,12 +250,88 @@ def depenses_par_fonction(cli: httpx.Client) -> None:
     )
 
 
+# Comptes de flux entre une commune et son intercommunalité, à suivre séparément.
+#
+#   FCCT versé par la commune à son EPT -> transfert INTERNE au couple, à neutraliser.
+#   Le compte n'est pas le même selon la nomenclature : **65541 en M14, 65561 en M57**.
+#   Contrôle : la somme des deux comptes sur les communes d'un EPT égale la « fiscalité
+#   reversée » que l'OFGL inscrit en recette de cet EPT, à moins de 1 % près
+#   (2023 : T2 104,70 M€ contre 104,69 M€ ; T3 123,54 contre 122,66 ; T4 168,51 contre
+#   168,15). Ne pas confondre avec 65568 (« autres contributions »), qui porte des
+#   cotisations à des syndicats et n'est pas un flux vers l'EPT : Colombes y inscrit
+#   6,2 M€ en 2024 alors que son EPT ne perçoit presque pas de FCCT.
+#
+#   Attribution de compensation reçue (7321x) -> versée par la Métropole du Grand Paris,
+#   donc EXTERNE au couple commune + EPT : mesurée, mais jamais neutralisée.
+FLUX_EPT = {
+    "65541": ("fcct", "debit"),
+    "65561": ("fcct", "debit"),
+    "73211": ("attribution_compensation", "credit"),
+    "73212": ("attribution_compensation", "credit"),
+}
+
+
+def flux_ept(cli: httpx.Client) -> None:
+    """Extrait des balances les flux financiers entre commune et intercommunalité."""
+    comptes = " or ".join(f'compte="{c}"' for c in FLUX_EPT)
+    lignes: list[dict] = []
+    for annee, ds in BALANCES.items():
+        if not (common.ANNEE_MIN <= annee <= common.ANNEE_MAX):
+            continue
+        where = (
+            f'ndept="0{common.DEPARTEMENT}" and categ="Commune" and cbudg="1" '
+            f"and ({comptes})"
+        )
+        got = list(
+            common.ods_records(
+                cli,
+                common.ECO,
+                ds,
+                where=where,
+                select=(
+                    "insee,compte,sum(obnetdeb) as debit, sum(obnetcre) as credit"
+                ),
+                order_by="insee,compte",
+                groupe="insee,compte",
+                taille=100,
+            )
+        )
+        for ligne in got:
+            compte = str(ligne.get("compte") or "")
+            nom, sens = FLUX_EPT[compte]
+            brut = (ligne.get("debit") or 0.0) if sens == "debit" else (ligne.get("credit") or 0.0)
+            lignes.append(
+                {
+                    "annee": annee,
+                    "code_insee": f"{common.DEPARTEMENT}{str(ligne.get('insee') or '').zfill(3)}",
+                    "compte": compte,
+                    "flux": nom,
+                    "montant": brut,
+                    "dataset": ds,
+                }
+            )
+        print(f"    {annee} : {len(got)} lignes de flux commune/EPT  ({ds[-18:]})")
+
+    common.ecrire_parquet(lignes, "dgfip_flux_ept")
+    common.noter_source(
+        "dgfip_flux_ept",
+        url=f"{common.ECO}/catalog/datasets/<dataset>/records",
+        datasets=BALANCES,
+        comptes={c: n for c, (n, _) in FLUX_EPT.items()},
+        filtre='ndept="092" and categ="Commune" and cbudg="1" and compte in (65561, 73211)',
+        unite="euros",
+        nb_lignes=len(lignes),
+    )
+
+
 def main() -> None:
     with common.client() as cli:
         print("  comptes individuels des communes")
         comptes_individuels(cli)
         print("  balances nature x fonction")
         depenses_par_fonction(cli)
+        print("  flux commune / EPT (FCCT et attribution de compensation)")
+        flux_ept(cli)
 
 
 if __name__ == "__main__":

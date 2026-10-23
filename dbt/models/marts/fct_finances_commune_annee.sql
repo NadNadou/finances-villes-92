@@ -32,7 +32,13 @@ kpi as (
         ) }},
 
         -- éléments de contexte et de traçabilité repris tels quels
-        dgf / nullif(population_totale, 0) as dgf_hab,
+        dgf  / nullif(population_totale, 0) as dgf_hab,
+        -- Ce que la commune verse à son EPT (FCCT) et ce qu'elle reçoit de la Métropole.
+        -- Dans ce périmètre « commune seule », le FCCT reste une dépense de la commune :
+        -- c'est bien de l'argent que la mairie sort. Il est en revanche neutralisé dans
+        -- `fct_finances_consolide`, où il deviendrait un double compte.
+        fcct / nullif(population_totale, 0) as fcct_hab,
+        attribution_compensation / nullif(population_totale, 0) as attribution_compensation_hab,
         niveau_vie_median,
         taux_pauvrete,
         millesime_filosofi,

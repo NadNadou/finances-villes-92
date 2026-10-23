@@ -48,6 +48,10 @@ select
     f.remboursement_dette,
     f.strate_demographique,
 
+    -- flux internes au couple commune + EPT (cf. stg_flux_ept)
+    coalesce(flux.fcct, 0)                     as fcct,
+    coalesce(flux.attribution_compensation, 0) as attribution_compensation,
+
     -- ratios légaux publiés par la DGFiP, conservés pour l'étape de contrôle qualité
     f.ctrl_depenses_hab,
     f.ctrl_equipement_hab,
@@ -114,3 +118,5 @@ left join {{ ref('stg_dotations') }} dot
     on dot.code_insee = f.code_insee and dot.annee = f.annee
 left join {{ ref('stg_equipements') }} eq
     on eq.code_insee = f.code_insee
+left join {{ ref('stg_flux_ept') }} flux
+    on flux.code_insee = f.code_insee and flux.annee = f.annee
