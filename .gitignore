@@ -13,3 +13,5 @@ site/build/
 site/.svelte-kit/
 nuit-*.log
 .DS_Store
+site/build/
+site/.evidence/
