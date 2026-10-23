@@ -6,7 +6,12 @@ import sys
 
 
 def main() -> int:
-    from ingest import dgfip, geo, insee, ofgl
+    from ingest import common, dgfip, geo, insee, ofgl
+
+    # dbt-duckdb ne crée pas le répertoire de sortie des marts : on s'en assure ici pour
+    # qu'un `dbt build` sur un clone frais ne tombe pas sur une IO Error.
+    common.RAW.mkdir(parents=True, exist_ok=True)
+    common.MARTS.mkdir(parents=True, exist_ok=True)
 
     etapes = [
         ("geo", geo.main),

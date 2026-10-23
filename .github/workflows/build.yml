@@ -2,16 +2,19 @@ name: build
 
 on:
   schedule:
-    # Le 5 de chaque mois à 04:17 UTC (les millésimes DGFiP/OFGL bougent peu souvent)
+    # Le 5 de chaque mois à 04:17 UTC. Les millésimes DGFiP, OFGL et INSEE bougent
+    # quelques fois par an : un passage mensuel suffit largement.
     - cron: "17 4 5 * *"
   workflow_dispatch:
     inputs:
       ingest:
-        description: "Relancer l'ingestion des sources (sinon on réutilise data/raw commité)"
+        description: "Relancer l'ingestion des sources ouvertes (sinon on réutilise data/raw commité)"
         type: boolean
         default: true
   push:
     branches: [main]
+    paths-ignore:
+      - "**.md"
 
 permissions:
   contents: write
@@ -21,6 +24,12 @@ permissions:
 concurrency:
   group: pages
   cancel-in-progress: false
+
+env:
+  # L'ingestion ne tourne qu'au passage planifié et au déclenchement manuel : sur un push,
+  # on reconstruit à partir des parquet commités, ce qui garde les pushes rapides et évite
+  # de marteler les API ouvertes.
+  AVEC_INGESTION: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.ingest) }}
 
 jobs:
   build:
@@ -32,20 +41,76 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: requirements.txt
 
       - name: Installer les dépendances Python
         run: pip install -r requirements.txt
 
-      - name: Ingestion des sources
-        if: github.event_name == 'schedule' || inputs.ingest == true
-        run: python -m ingest.run_all
+      # Une source publique peut tomber ou changer d'identifiant sans prévenir. Dans ce
+      # cas on ne veut pas perdre le site : on continue avec les parquet commités, mais
+      # l'échec est remonté dans le résumé du run plutôt que passé sous silence.
+      - name: Ingestion des sources ouvertes
+        id: ingestion
+        if: env.AVEC_INGESTION == 'true'
         continue-on-error: true
+        run: python -m ingest.run_all
 
-      - name: dbt build
-        working-directory: dbt
+      - name: Signaler une ingestion partielle
+        if: env.AVEC_INGESTION == 'true' && steps.ingestion.outcome == 'failure'
         run: |
-          dbt deps --profiles-dir . || true
-          dbt build --profiles-dir .
+          echo "::warning title=Ingestion partielle::Au moins une source n'a pas répondu. Le site est reconstruit à partir des parquet commités. Voir les logs de l'étape « Ingestion des sources ouvertes »."
+          {
+            echo "## ⚠️ Ingestion partielle"
+            echo ""
+            echo "Au moins une source n'a pas répondu. Le site a été reconstruit à partir des"
+            echo "parquet déjà commités dans \`data/raw/\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: dbt build (modèles + 87 tests)
+        working-directory: dbt
+        run: dbt build --profiles-dir .
+
+      - name: Résumer les contrôles qualité
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          from pathlib import Path
+          import duckdb
+
+          marts = Path("data/marts")
+          if not (marts / "fct_controle_sources.parquet").exists():
+              print("## Contrôles qualité\n\nMarts absents : `dbt build` n'a pas abouti.")
+              raise SystemExit(0)
+
+          con = duckdb.connect()
+          print("## Contrôles qualité\n")
+          print("### Nos ratios contre les ratios légaux publiés par la DGFiP\n")
+          print("| Ratio | Points | Écart relatif max |")
+          print("|---|---|---|")
+          for libelle, n, pct in con.execute(
+              """
+              select libelle, count(*), max(abs(ecart_pct))
+              from read_parquet('data/marts/fct_controle_qualite.parquet')
+              where reference = 'ratio légal DGFiP'
+              group by 1 order by 1
+              """
+          ).fetchall():
+              print(f"| {libelle} | {n} | {pct:.4f} % |")
+
+          print("\n### DGFiP contre OFGL, concepts à définition commune\n")
+          print("| Concept | Points | Écart relatif max | Écart absolu max |")
+          print("|---|---|---|---|")
+          for libelle, n, pct, eur in con.execute(
+              """
+              select libelle, count(*), max(abs(ecart_pct)), max(abs(ecart_absolu))
+              from read_parquet('data/marts/fct_controle_sources.parquet')
+              where attendu_identique = 'oui'
+                and valeur_dgfip is not null and valeur_ofgl is not null
+              group by 1 order by 1
+              """
+          ).fetchall():
+              print(f"| {libelle} | {n} | {pct:.4f} % | {eur:,.2f} € |")
+          PY
 
       - uses: actions/setup-node@v4
         with:
@@ -58,7 +123,7 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       # `evidence build` ne lit pas les sources tout seul : sans ce `sources`, le site
-      # se construit sans données (il log « No sources found » et déploie des pages vides).
+      # se construit sans données (il log « No sources found ») et déploie des pages vides.
       - name: Évaluer les sources Evidence
         working-directory: site
         run: npx evidence sources
@@ -68,16 +133,18 @@ jobs:
         run: npx evidence build:strict
 
       - name: Commiter les données rafraîchies
-        if: github.event_name == 'schedule' || inputs.ingest == true
+        if: env.AVEC_INGESTION == 'true'
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/raw data/marts
           if git diff --cached --quiet; then
-            echo "Aucune donnée modifiée."
+            echo "Aucune donnée modifiée, rien à commiter."
           else
-            git commit -m "chore(data): rafraîchissement automatique des sources"
-            git push
+            # [skip ci] : ce commit ne doit pas relancer le workflow, le site vient
+            # d'être construit avec ces mêmes données.
+            git commit -m "chore(data): rafraîchissement automatique des sources [skip ci]"
+            git push origin HEAD:${GITHUB_REF_NAME:-main}
           fi
 
       - uses: actions/upload-pages-artifact@v3

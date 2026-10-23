@@ -1,0 +1,3 @@
+Les parquet bruts produits par ingest/ sont commités (ils sont petits, ~1 Mo au total)
+pour que le site soit reconstructible sans dépendre de la disponibilité des API.
+Ce fichier garantit que le répertoire existe même sur un clone frais.

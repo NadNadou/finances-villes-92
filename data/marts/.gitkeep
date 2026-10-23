@@ -1,0 +1,6 @@
+Les marts parquet sont écrits ici par dbt (materialized: external, external_root dans
+dbt/profiles.yml) et lus par le site Evidence.
+
+Ce fichier n'est pas décoratif : dbt-duckdb ne crée pas le répertoire de sortie, et un
+`dbt build` sur un clone où `data/marts/` n'existe pas échoue avec « IO Error: Cannot open
+file ». `ingest/run_all.py` le recrée aussi, pour le cas où l'ingestion tourne seule.
