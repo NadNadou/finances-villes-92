@@ -14,7 +14,7 @@
       "2025": "comptes-individuels-des-communes-fichier-global-2025"
     },
     "filtre": "dep=\"092\"",
-    "ingere_le": "2026-10-24 01:37:11",
+    "ingere_le": "2026-10-23 23:42:31",
     "nb_lignes": 396,
     "unite_f": "euros par habitant (commune)",
     "unite_m": "euros par habitant (moyenne de la strate)",
@@ -44,7 +44,7 @@
       "2025": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec-la-presentation-croisee-nature-fonction-2025"
     },
     "filtre": "ndept=\"092\" and categ=\"Commune\" and cbudg=\"1\" and compte in (65561, 73211)",
-    "ingere_le": "2026-10-24 01:39:03",
+    "ingere_le": "2026-10-23 23:45:33",
     "nb_lignes": 671,
     "unite": "euros",
     "url": "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/<dataset>/records"
@@ -65,7 +65,7 @@
     },
     "exclusions": "comptes commençant par ('68', '675', '676') (opérations d'ordre)",
     "filtre": "ndept=\"092\" and categ=\"Commune\" and cbudg=\"1\" and compte like \"6*\"",
-    "ingere_le": "2026-10-24 01:38:59",
+    "ingere_le": "2026-10-23 23:45:21",
     "mesure": "sum(obnetdeb) - sum(obnetcre), groupé par insee x fonction x nomenclature",
     "nb_lignes": 22198,
     "unite": "euros",
@@ -74,14 +74,14 @@
   "geo_communes": {
     "api": "https://geo.api.gouv.fr/communes?codeDepartement=92",
     "dataset_ept": "data.ofgl.fr / infos-rei (champs sirept, libept)",
-    "ingere_le": "2026-10-24 01:36:09",
+    "ingere_le": "2026-10-23 23:41:20",
     "nb_communes": 36,
     "nb_ept": 4
   },
   "insee_age_detail": {
     "dataset": "DS_RP_TD_POPULATION_AGESEX_PRINC",
     "filtre": "SEX=_T, population par âge révolu",
-    "ingere_le": "2026-10-24 01:39:06",
+    "ingere_le": "2026-10-23 23:45:38",
     "millesimes": [
       2023
     ],
@@ -91,7 +91,7 @@
   "insee_age_tranches": {
     "dataset": "DS_RP_POPULATION_PRINC",
     "filtre": "SEX=_T, AGE dans _T, Y_LT15, Y_LT20, Y20T64, Y55T64, Y65T79, Y_GE65, Y_GE80",
-    "ingere_le": "2026-10-24 01:39:05",
+    "ingere_le": "2026-10-23 23:45:37",
     "millesimes": [
       2012,
       2017,
@@ -102,7 +102,7 @@
   },
   "insee_equipements": {
     "dataset": "DS_BPE",
-    "ingere_le": "2026-10-24 01:39:07",
+    "ingere_le": "2026-10-23 23:45:40",
     "limite": "Seule la mesure FACILITIES est disponible : pas de capacité (places de crèche).",
     "millesimes": [
       2025
@@ -122,7 +122,7 @@
   },
   "insee_filosofi": {
     "dataset": "DS_FILOSOFI_CC",
-    "ingere_le": "2026-10-24 01:39:06",
+    "ingere_le": "2026-10-23 23:45:38",
     "limite": "Melodi n'expose que le millésime le plus récent de Filosofi à la commune.",
     "mesures": {
       "D1_SL": "1er décile du niveau de vie (€/an par UC)",
@@ -157,7 +157,7 @@
       2024,
       2025
     ],
-    "ingere_le": "2026-10-24 01:39:05",
+    "ingere_le": "2026-10-23 23:45:36",
     "nb_lignes": 504,
     "plateforme": "data.ofgl.fr (republication des populations légales INSEE)"
   },
@@ -174,7 +174,7 @@
       2025
     ],
     "filtre": "dep_code='92' and type_de_budget='Budget principal'",
-    "ingere_le": "2026-10-24 01:36:52",
+    "ingere_le": "2026-10-23 23:42:09",
     "nb_lignes": 14117,
     "url": "https://data.ofgl.fr/api/explore/v2.1/catalog/datasets/ofgl-base-communes/records"
   },
@@ -192,7 +192,7 @@
       2026
     ],
     "filtre": "code_departement=\"92\" and variable in (\"Potentiel fiscal 4 taxes\", \"Potentiel fiscal 4 taxes par hab.\", \"Potentiel fiscal moyen de la strate\", \"Potentiel financier\", \"Potentiel financier par hab.\", \"Potentiel financier moyen de la strate\", \"Effort fiscal\", \"Effort fiscal moyen de la strate\", \"Montant Dotation DGF\", \"Montant Dotation forfaitaire\", \"Montant Dotation DSU\", \"Montant Dotation DNP\")",
-    "ingere_le": "2026-10-24 01:37:06",
+    "ingere_le": "2026-10-23 23:42:25",
     "nb_lignes": 3336,
     "url": "https://data.ofgl.fr/api/explore/v2.1/catalog/datasets/dotations-communes/records",
     "variables": [
@@ -223,7 +223,7 @@
       2025
     ],
     "filtre": "siren in ('200057966', '200057974', '200057982', '200057990') and type_de_budget='Budget principal'",
-    "ingere_le": "2026-10-24 01:36:59",
+    "ingere_le": "2026-10-23 23:42:15",
     "nb_lignes": 1576,
     "url": "https://data.ofgl.fr/api/explore/v2.1/catalog/datasets/ofgl-base-gfp/records"
   }
