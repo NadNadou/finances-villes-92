@@ -571,3 +571,47 @@ Critère demandé : « écart < 2 % sur les ratios légaux, ou écart expliqué 
   dont deux vérifiées au centime (charges financières d'Antony 2021, FCCT de T2 2024). ✅
 - Un écart non résolu : la DGF du BP 2026 de Vanves. ❌ — signalé comme tel, à vérifier sur
   le document d'origine.
+
+---
+
+## Étape 8 — Automatisation
+
+Workflow `.github/workflows/build.yml`.
+
+| Déclencheur | Ingestion | Reconstruction dbt + site | Déploiement Pages | Commit des parquet |
+|---|---|---|---|---|
+| `schedule` le 5 de chaque mois à 04:17 UTC | oui | oui | oui | oui |
+| `workflow_dispatch` (case « relancer l'ingestion », cochée par défaut) | au choix | oui | oui | si ingestion |
+| `push` sur `main` (hors fichiers `.md`) | non | oui | oui | non |
+
+Choix et pourquoi :
+
+- **Un push ne relance pas l'ingestion.** On reconstruit depuis les parquet commités : les
+  pushes restent rapides et on ne martèle pas des API ouvertes gratuites pour rien.
+- **Une source indisponible ne casse pas le site.** L'étape d'ingestion est en
+  `continue-on-error`, mais l'échec est remonté en `::warning` et dans le
+  `GITHUB_STEP_SUMMARY` du run. Le site se reconstruit alors sur les parquet commités.
+  Un échec silencieux est le seul scénario à éviter absolument ; un décalage d'un mois sur
+  un millésime ne l'est pas.
+- **Les contrôles qualité sont résumés dans chaque run.** Une étape lit les marts et écrit
+  dans le récapitulatif GitHub les écarts maximaux face aux ratios légaux DGFiP et face à
+  l'OFGL. On voit la qualité des données sans ouvrir un seul log.
+- **`evidence sources` avant `evidence build`.** `evidence build` ne lit pas les sources tout
+  seul : sans cette étape, le site se construisait sans données (log « No sources found ») et
+  déployait des pages vides. C'était le cas du premier déploiement, corrigé.
+- **`evidence build:strict`** : une requête cassée fait échouer le run au lieu de publier
+  silencieusement une page vide.
+- **`[skip ci]` sur le commit de données** : le site vient d'être construit avec ces mêmes
+  parquet, inutile de relancer un run.
+- **`data/raw/.gitkeep` et `data/marts/.gitkeep`** : dbt-duckdb ne crée pas le répertoire de
+  sortie des marts, et un `dbt build` sur un clone où `data/marts/` n'existe pas échoue en
+  `IO Error`. `ingest/run_all.py` recrée aussi les deux répertoires.
+
+GitHub Pages a été activé en mode « GitHub Actions »
+(`gh api -X POST repos/.../pages -f build_type=workflow`). Les échecs de workflow antérieurs
+à cette activation portaient uniquement sur l'étape `deploy-pages`, le job `build` passant.
+
+**Critère validé** : run `workflow_dispatch` n° 40041011488 vert de bout en bout — ingestion
+des 4 modules, `dbt build` avec 87 tests, `evidence sources`, `evidence build:strict`, commit
+des données rafraîchies, déploiement Pages. Les trois pages répondent en HTTP 200 et le
+parquet servi au navigateur contient bien les valeurs attendues.

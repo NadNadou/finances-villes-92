@@ -1,6 +1,8 @@
 # Finances des villes 92
 
-Comparateur des finances des 36 communes des Hauts-de-Seine, pour répondre à 6 questions
+**→ https://nadnadou.github.io/finances-villes-92/**
+
+Comparateur des finances des 36 communes des Hauts-de-Seine (2015-2025), pour répondre à 6 questions
 simples : qui construit le plus, qui est le plus endetté, où va l'argent, est-ce une ville
 pour les enfants, combien paient les habitants, ville riche ou ville qui choisit.
 
@@ -26,5 +28,21 @@ cd dbt && ../.venv/bin/dbt build --profiles-dir .   # modèles + tests
 cd ../site && npm install && npx evidence build     # site statique dans site/build
 ```
 
-- `METHODO.md` : sources exactes, hypothèses, écarts, limites.
-- `RAPPORT.md` : ce qui est fait, ce qui reste, points à vérifier.
+Le site statique est dans `site/build`, déployé sur GitHub Pages par
+`.github/workflows/build.yml` (cron mensuel + déclenchement manuel).
+
+## Documentation
+
+- `METHODO.md` : sources exactes (identifiants de datasets, filtres), définition de chaque
+  KPI, écarts de périmètre entre sources, trous et pourquoi, contrôles qualité.
+- `RAPPORT.md` : ce qui est fait, ce qui ne l'est pas, les points à vérifier.
+- `data/raw/_sources.json` : journal machine des sources réellement ingérées, écrit à chaque
+  exécution (URL, identifiant de dataset, filtre, date).
+
+## Qualité
+
+87 tests dbt à chaque build : unicité des clés, non-nullité des agrégats principaux, bornes
+de vraisemblance des indicateurs, et écarts aux références extérieures. Les ratios du site
+sont recalculés depuis les montants bruts, puis confrontés aux ratios légaux publiés par la
+DGFiP (396 points par ratio, écart maximal 0,04 %) et aux agrégats de l'OFGL, éditeur
+indépendant (288 points par concept).
