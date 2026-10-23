@@ -1,0 +1,71 @@
+version: 2
+
+models:
+  - name: stg_commune
+    columns:
+      - name: code_insee
+        tests: [unique, not_null]
+
+  - name: stg_dgfip_commune
+    description: >
+      Comptes individuels DGFiP : une ligne par commune x exercice, montants en euros.
+      Source de référence du projet (mêmes chiffres que les fiches « comptes individuels
+      des collectivités » d'impots.gouv.fr/cll, donc ratios légaux comparables).
+    columns:
+      - name: code_insee
+        tests: [not_null]
+      - name: annee
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+                quote: false
+      - name: population_dgfip
+        tests: [not_null]
+      - name: recettes_fonctionnement
+        tests: [not_null]
+      - name: depenses_fonctionnement
+        tests: [not_null]
+      - name: charges_personnel
+        tests: [not_null]
+      - name: depenses_equipement
+        tests: [not_null]
+      - name: encours_dette
+        tests: [not_null]
+      - name: epargne_brute
+        tests: [not_null]
+      - name: impots_locaux
+        tests: [not_null]
+      - name: dgf
+        tests: [not_null]
+
+  - name: stg_ofgl_ept
+    description: Agrégats OFGL des 4 EPT, budget principal. Couverture 2018-2025.
+    columns:
+      - name: siren_ept
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["200057966", "200057974", "200057982", "200057990"]
+      - name: annee
+        tests: [not_null]
+      - name: montant
+        tests: [not_null]
+
+  - name: stg_fonction_commune
+    description: Charges de classe 6 par domaine fonctionnel unifié M14/M57, en euros.
+    columns:
+      - name: code_domaine
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["SG", "SEC", "ENS", "CSJ", "SOC", "CDV", "ECO", "NV"]
+
+  - name: stg_dotations
+    description: Potentiel fiscal / financier et effort fiscal (OFGL). Couverture 2018-2026.
+    columns:
+      - name: code_insee
+        tests: [not_null]

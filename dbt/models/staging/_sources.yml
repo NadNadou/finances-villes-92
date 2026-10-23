@@ -8,3 +8,17 @@ sources:
     tables:
       - name: geo_communes
         description: 36 communes du 92 + rattachement EPT (geo.api.gouv.fr + OFGL infos-rei).
+      - name: dgfip_comptes_commune
+        description: >
+          Comptes individuels DGFiP des 36 communes, 2015-2025. Montants en milliers d'euros ;
+          f* = €/hab commune, m* = €/hab moyenne de strate, r* = % commune, rm* = % strate.
+      - name: dgfip_fonction_commune
+        description: >
+          Charges de classe 6 (hors opérations d'ordre) par commune x exercice x fonction
+          M14/M57, issues des balances « présentation croisée nature-fonction ». En euros.
+      - name: ofgl_commune_agregat
+        description: Agrégats OFGL des communes (budget principal), 2018-2025, en euros.
+      - name: ofgl_ept_agregat
+        description: Agrégats OFGL des 4 EPT (budget principal), 2018-2025, en euros.
+      - name: ofgl_dotations
+        description: Potentiel fiscal / financier, effort fiscal, DGF (OFGL dotations-communes).

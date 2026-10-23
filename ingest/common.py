@@ -60,6 +60,7 @@ def ods_records(
     where: str | None = None,
     select: str | None = None,
     order_by: str | None = None,
+    groupe: str | None = None,
     taille: int = 100,
     plafond: int | None = None,
 ) -> Iterator[dict]:
@@ -77,6 +78,8 @@ def ods_records(
             params["select"] = select
         if order_by:
             params["order_by"] = order_by
+        if groupe:
+            params["group_by"] = groupe
         data = get_json(cli, f"{base}/catalog/datasets/{dataset}/records", params)
         lignes = data.get("results") or []
         for ligne in lignes:
@@ -86,7 +89,12 @@ def ods_records(
             return
         if plafond and offset >= plafond:
             return
-        if offset >= 10_000:  # limite dure d'Opendatasoft
+        if offset >= 10_000:  # limite dure d'Opendatasoft : offset + limit <= 10 000
+            print(
+                f"  !! TRONQUÉ à 10 000 lignes : {dataset} where={where!r}. "
+                "Découper la requête (par année, par commune ou via group_by).",
+                flush=True,
+            )
             return
 
 

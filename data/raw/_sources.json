@@ -1,9 +1,121 @@
 {
+  "dgfip_comptes_commune": {
+    "datasets": {
+      "2015": "comptes-individuels-des-communes-fichier-global-2011-2015",
+      "2016": "comptes-individuels-des-communes-fichier-global-2016",
+      "2017": "comptes-individuels-des-communes-fichier-global-2017",
+      "2018": "comptes-individuels-des-communes-fichier-global-2018",
+      "2019": "comptes-individuels-des-communes-fichier-global-2019-2020",
+      "2020": "comptes-individuels-des-communes-fichier-global-2019-2020",
+      "2021": "comptes-individuels-des-communes-fichier-global-2021",
+      "2022": "comptes-individuels-des-communes-fichier-global-2022",
+      "2023": "comptes-individuels-des-communes-fichier-global-2023-2024",
+      "2024": "comptes-individuels-des-communes-fichier-global-2023-2024",
+      "2025": "comptes-individuels-des-communes-fichier-global-2025"
+    },
+    "filtre": "dep=\"092\"",
+    "ingere_le": "2026-10-24 00:45:18",
+    "nb_lignes": 396,
+    "unite_f": "euros par habitant (commune)",
+    "unite_m": "euros par habitant (moyenne de la strate)",
+    "unite_montants": "milliers d'euros",
+    "unite_r": "pourcentage (commune)",
+    "unite_rm": "pourcentage (moyenne de la strate)",
+    "url": "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/<dataset>/records"
+  },
+  "dgfip_fonction_commune": {
+    "datasets": {
+      "2015": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec2",
+      "2016": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec1",
+      "2017": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec-",
+      "2018": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec0",
+      "2019": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec6",
+      "2020": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec7",
+      "2021": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec8",
+      "2022": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-2022",
+      "2023": "balances-comptables-des-collectivites-et-des-epl-avec-fonction-2023",
+      "2024": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec-la-presentation-croisee-nature-fonction-2024",
+      "2025": "balances-comptables-des-collectivites-et-des-etablissements-publics-locaux-avec-la-presentation-croisee-nature-fonction-2025"
+    },
+    "exclusions": "comptes commençant par ('68', '675', '676') (opérations d'ordre)",
+    "filtre": "ndept=\"092\" and categ=\"Commune\" and cbudg=\"1\" and compte like \"6*\"",
+    "ingere_le": "2026-10-24 00:46:02",
+    "mesure": "sum(obnetdeb) - sum(obnetcre), groupé par insee x fonction x nomenclature",
+    "nb_lignes": 22198,
+    "unite": "euros",
+    "url": "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/<dataset>/records"
+  },
   "geo_communes": {
     "api": "https://geo.api.gouv.fr/communes?codeDepartement=92",
     "dataset_ept": "data.ofgl.fr / infos-rei (champs sirept, libept)",
     "ingere_le": "2026-10-24 00:34:05",
     "nb_communes": 36,
     "nb_ept": 4
+  },
+  "ofgl_commune_agregat": {
+    "dataset": "ofgl-base-communes",
+    "exercices": [
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "filtre": "dep_code='92' and type_de_budget='Budget principal'",
+    "ingere_le": "2026-10-24 00:37:38",
+    "nb_lignes": 14117,
+    "url": "https://data.ofgl.fr/api/explore/v2.1/catalog/datasets/ofgl-base-communes/records"
+  },
+  "ofgl_dotations": {
+    "dataset": "dotations-communes",
+    "exercices": [
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025,
+      2026
+    ],
+    "filtre": "code_departement=\"92\" and variable in (\"Potentiel fiscal 4 taxes\", \"Potentiel fiscal 4 taxes par hab.\", \"Potentiel fiscal moyen de la strate\", \"Potentiel financier\", \"Potentiel financier par hab.\", \"Potentiel financier moyen de la strate\", \"Effort fiscal\", \"Effort fiscal moyen de la strate\", \"Montant Dotation DGF\", \"Montant Dotation forfaitaire\", \"Montant Dotation DSU\", \"Montant Dotation DNP\")",
+    "ingere_le": "2026-10-24 00:37:48",
+    "nb_lignes": 3336,
+    "url": "https://data.ofgl.fr/api/explore/v2.1/catalog/datasets/dotations-communes/records",
+    "variables": [
+      "Potentiel fiscal 4 taxes",
+      "Potentiel fiscal 4 taxes par hab.",
+      "Potentiel fiscal moyen de la strate",
+      "Potentiel financier",
+      "Potentiel financier par hab.",
+      "Potentiel financier moyen de la strate",
+      "Effort fiscal",
+      "Effort fiscal moyen de la strate",
+      "Montant Dotation DGF",
+      "Montant Dotation forfaitaire",
+      "Montant Dotation DSU",
+      "Montant Dotation DNP"
+    ]
+  },
+  "ofgl_ept_agregat": {
+    "dataset": "ofgl-base-gfp",
+    "exercices": [
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+    ],
+    "filtre": "siren in ('200057966', '200057974', '200057982', '200057990') and type_de_budget='Budget principal'",
+    "ingere_le": "2026-10-24 00:37:44",
+    "nb_lignes": 1576,
+    "url": "https://data.ofgl.fr/api/explore/v2.1/catalog/datasets/ofgl-base-gfp/records"
   }
 }

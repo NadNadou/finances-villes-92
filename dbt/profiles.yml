@@ -5,5 +5,8 @@ finances92:
       type: duckdb
       path: "../finances.duckdb"
       threads: 4
+      # Les marts matérialisés en `external` sont écrits ici, en parquet :
+      # c'est le répertoire que lit le site Evidence.
+      external_root: "../data/marts"
       extensions:
         - parquet

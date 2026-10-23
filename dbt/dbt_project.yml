@@ -20,9 +20,16 @@ vars:
 models:
   finances92:
     staging:
-      +materialized: view
+      # Tables et non vues : les sources sont des parquet lus par chemin relatif.
+      # On ne veut pas que ce chemin soit résolu à chaque requête aval (le site
+      # Evidence n'a pas le même répertoire courant que dbt).
+      +materialized: table
       +schema: staging
     intermediate:
       +materialized: table
     marts:
-      +materialized: table
+      # Matérialisation externe : chaque mart est écrit en parquet dans data/marts/,
+      # c'est ce que lit le site Evidence.
+      # (le répertoire de sortie est `external_root` dans profiles.yml)
+      +materialized: external
+      +format: parquet
