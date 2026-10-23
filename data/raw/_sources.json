@@ -1,0 +1,9 @@
+{
+  "geo_communes": {
+    "api": "https://geo.api.gouv.fr/communes?codeDepartement=92",
+    "dataset_ept": "data.ofgl.fr / infos-rei (champs sirept, libept)",
+    "ingere_le": "2026-10-24 00:34:05",
+    "nb_communes": 36,
+    "nb_ept": 4
+  }
+}

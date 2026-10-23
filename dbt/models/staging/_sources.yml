@@ -1,0 +1,10 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Parquet bruts produits par ingest/ (lus directement par DuckDB).
+    meta:
+      external_location: "../data/raw/{name}.parquet"
+    tables:
+      - name: geo_communes
+        description: 36 communes du 92 + rattachement EPT (geo.api.gouv.fr + OFGL infos-rei).
