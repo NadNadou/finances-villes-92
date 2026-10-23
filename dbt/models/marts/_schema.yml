@@ -1,0 +1,92 @@
+version: 2
+
+models:
+  - name: fct_finances_commune_annee
+    description: >
+      Les 6 KPI du projet, périmètre commune seule, une ligne par commune x exercice
+      2015-2025. Tous les ratios sont recalculés à partir des montants et de la
+      population ; les colonnes `ctrl_*` reprennent les ratios légaux publiés par la
+      DGFiP et servent de contrôle.
+    tests:
+      - unicite_commune_annee
+    columns:
+      - name: code_insee
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_commune')
+                field: code_insee
+      - name: annee
+        tests: [not_null]
+      - name: population_totale
+        tests: [not_null]
+      - name: equipement_hab
+        tests: [not_null]
+      - name: encours_dette_hab
+        tests: [not_null]
+      - name: depenses_fonctionnement_hab
+        tests: [not_null]
+      - name: impots_locaux_hab
+        tests: [not_null]
+      - name: part_personnel_pct
+        tests: [not_null]
+      - name: perimetre
+        tests:
+          - accepted_values:
+              arguments: { values: ["commune"] }
+
+  - name: fct_finances_consolide
+    description: >
+      Les 6 KPI, périmètre commune + part de l'EPT répartie au prorata de la population.
+      `ept_disponible` indique si la part d'EPT a pu être ajoutée (faux avant 2018).
+    tests:
+      - unicite_commune_annee
+    columns:
+      - name: code_insee
+        tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_commune')
+                field: code_insee
+      - name: annee
+        tests: [not_null]
+      - name: population_totale
+        tests: [not_null]
+      - name: equipement_hab
+        tests: [not_null]
+      - name: encours_dette_hab
+        tests: [not_null]
+      - name: perimetre
+        tests:
+          - accepted_values:
+              arguments: { values: ["commune + EPT"] }
+
+  - name: fct_depenses_domaine
+    description: >
+      Question 3 : répartition des charges de fonctionnement par domaine fonctionnel
+      unifié M14/M57. Une ligne par commune x exercice x domaine.
+    columns:
+      - name: code_insee
+        tests: [not_null]
+      - name: code_domaine
+        tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ["SG", "SEC", "ENS", "CSJ", "SOC", "CDV", "ECO", "NV"]
+      - name: part_pct
+        tests: [not_null]
+
+  - name: fct_classement_92
+    description: >
+      Rang de chaque commune sur chaque KPI, dernière année où le KPI est renseigné pour
+      au moins 30 des 36 communes, dans les deux périmètres. Format long.
+    columns:
+      - name: code_insee
+        tests: [not_null]
+      - name: kpi
+        tests: [not_null]
+      - name: rang
+        tests: [not_null]

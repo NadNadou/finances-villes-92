@@ -1,0 +1,15 @@
+version: 2
+
+seeds:
+  - name: ref_ratios_legaux
+    description: >
+      Valeurs de référence relevées sur des documents budgétaires publiés par les communes,
+      servant de contrôle externe aux KPI calculés. `comparable` dit si l'écart doit être
+      faible : certaines lignes d'un budget primitif ne sont pas comparables à un compte
+      administratif (poste volatil, épargne prévisionnelle, moyenne de strate).
+    config:
+      column_types:
+        code_insee: varchar
+        annee_document: integer
+        annee_comparaison: integer
+        valeur: double

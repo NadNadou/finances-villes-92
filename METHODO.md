@@ -243,3 +243,173 @@ grandeur sur l'ensemble du département :
 Pour les écoles, collèges et lycées on utilise le **sous-domaine** (`FACILITY_TYPE = '_T'`),
 plus stable d'un millésime à l'autre que les types fins. Les crèches n'ont pas de
 sous-domaine dédié (`D5` mélange plusieurs publics), d'où le recours au type `D502`.
+
+---
+
+## Étape 5 — Modèles dbt et définition des KPI
+
+### Architecture des modèles
+
+```
+sources (data/raw/*.parquet)
+  └─ staging/     stg_commune  stg_dgfip_commune  stg_ofgl_commune  stg_ofgl_ept
+                  stg_dotations  stg_fonction_commune  stg_population
+                  stg_age_tranches  stg_age_detail  stg_filosofi  stg_equipements
+      └─ intermediate/  dim_commune  int_structure_age  int_ept_reparti  int_base_kpi
+          └─ marts/     fct_finances_commune_annee  fct_finances_consolide
+                        fct_depenses_domaine  fct_classement_92  fct_controle_qualite
+```
+
+Les marts sont matérialisés en `external` : dbt écrit chacun en parquet dans
+`data/marts/`, qui est ce que lit le site Evidence (`external_root` dans `profiles.yml`).
+
+`int_base_kpi` rassemble, par commune et par exercice, les montants de la commune, la part
+d'EPT qui lui revient, la population et le contexte socio-démographique. Les deux tables
+de faits appliquent ensuite **la même macro** (`macros/bloc_kpi.sql`) à deux jeux de
+montants différents. C'est la condition pour que la bascule « commune seule / commune +
+EPT » du site compare bien la même chose : il n'existe qu'une seule écriture de chaque
+formule, de chaque seuil et de chaque cas de nullité.
+
+### Définition exacte des 6 KPI
+
+| # | Question | Colonne | Formule | Cas de nullité |
+|---|---|---|---|---|
+| 1 | Qui construit le plus ? | `equipement_hab`, `equipement_hab_moy3` | dépenses d'équipement (subventions d'équipement versées incluses, définition du ratio légal) / population totale ; moyenne glissante sur l'exercice et les deux précédents | la moyenne 3 ans est `NULL` tant que les trois exercices ne sont pas disponibles (donc 2015 et 2016) |
+| 2 | Qui est le plus endetté ? | `capacite_desendettement_annees` | encours de dette / épargne brute | `NULL` si l'épargne brute est ≤ 0 (aucune capacité de remboursement) ou si le ratio dépasse 100 ans (résultat sans sens économique). `capacite_desendettement_brute` garde la valeur telle quelle, et `desendettement_situation` dit dans quel cas on est. Seuil d'alerte à 12 ans, zone de vigilance de 8 à 12 ans. |
+| 3 | Où va l'argent ? | `fct_depenses_domaine` | charges de classe 6 hors opérations d'ordre, ventilées sur la grille unifiée M14/M57, en part du total ventilé | Marnes-la-Coquette : absente du dataset des balances |
+| 4 | Une ville pour les enfants ? | `depenses_enfance_par_enfant` | (charges du domaine Enseignement + charges de petite enfance) / population de 0 à 10 ans | `NULL` si la ventilation fonctionnelle manque |
+| 5 | Combien paient les habitants ? | `impots_locaux_hab`, `poids_impots_sur_revenu_pct` | impôts locaux / population ; puis rapporté au niveau de vie médian annuel par unité de consommation (Filosofi 2023) | le dénominateur n'existe qu'en millésime 2023 |
+| 6 | Ville riche ou ville qui choisit ? | `potentiel_fiscal_hab` | potentiel fiscal 4 taxes par habitant, tel que publié par la DGCL (OFGL `dotations-communes`) | `NULL` avant 2018 |
+
+**Petite enfance (question 4), sous-fonction identifiée dans les deux nomenclatures.**
+La ventilation par fonction ne donne que le premier chiffre pour les domaines, mais les
+codes bruts sont conservés dans `data/raw`, ce qui permet d'isoler la petite enfance :
+`64x` en M14 (« Crèches et garderies »), `422x` en M57 (« Petite enfance »). Contrôlé sur
+les 16 communes encore en M14 en 2023 : le total `64x` de 2023 et le total `422x` de 2024
+se recollent à quelques pourcents près (Vanves −4 %, Antony +5 %, Montrouge −4 %,
+Nanterre +2 %, Châtillon 0 %, Bois-Colombes 0 %). La continuité de la série de
+Boulogne-Billancourt au passage M14 → M57 (20,4 M€ en 2020, 21,2 M€ en 2021) confirme.
+
+**Pourquoi la question 4 est identique dans les deux périmètres** : écoles et crèches sont
+des compétences communales, l'EPT n'en porte pas. Ajouter une part d'EPT au numérateur
+serait faux.
+
+**Pourquoi la question 6 est identique dans les deux périmètres** : le potentiel fiscal
+publié par la DGCL est celui de la commune. Il n'existe pas de « potentiel fiscal
+commune + part d'EPT » officiel, et en construire un reviendrait à inventer un indicateur.
+
+### Le piège des communes qui votent leur budget par fonction
+
+Dans les balances comptables, une commune qui vote son budget par fonction **préfixe le
+code fonction par le chapitre** : chapitres 92x en M14 et 93x en M57 pour la section de
+fonctionnement, 94x à 96x pour les opérations non ventilées. Dans le 92, une seule commune
+le fait : **Boulogne-Billancourt**. Son code « 9264 » est le chapitre 92 + fonction 64
+(crèches, 22,6 M€ en 2015) et « 934222 » le chapitre 93 + fonction 4222 (crèches, 22,1 M€
+en 2024).
+
+Sans traitement, le premier chiffre de ces codes vaut 9, et toutes les dépenses de
+fonctionnement de la 1re ville du département (120 000 habitants) se retrouvaient classées
+en « action économique » — ce qui gonflait ce domaine à 215 M€ à l'échelle du 92.
+
+La détection se fait **par commune et par exercice**, sur la part de codes commençant par
+9 (seuil 80 %) : Boulogne est à 98-100 %, toutes les autres communes sous 10 %, où les
+codes 90x à 96x sont de vraies sous-fonctions d'action économique en M14. Aucun code INSEE
+n'est écrit en dur.
+
+Les codes contiennent aussi parfois des séparateurs (« 020.90 », « 020& », « 0020 ») :
+seuls les chiffres sont conservés avant découpage.
+
+### Le piège de la répartition de l'EPT : Argenteuil
+
+Le contrôle `controle_couverture_pct` de `int_ept_reparti` a révélé que la somme des
+populations des communes du 92 membres de **T5 Boucle Nord de Seine** ne représente que
+**75 à 77 %** de la population que l'OFGL attribue à cet EPT, là où T2, T3 et T4 sont à
+100,00 %. Cause : **Argenteuil (95018, Val-d'Oise)** est membre de T5. C'est la seule
+commune de la Métropole du Grand Paris située hors 75/92/93/94, et elle pèse environ un
+quart de la population de T5.
+
+Utiliser la somme des populations de nos 36 communes comme dénominateur aurait surévalué
+d'environ un tiers la part d'EPT attribuée à Asnières, Bois-Colombes, Clichy, Colombes,
+Gennevilliers et Villeneuve-la-Garenne. Le dénominateur retenu est donc la **population
+totale de l'EPT publiée par l'OFGL**, qui inclut Argenteuil : la part de T5 revenant à
+Argenteuil n'est attribuée à aucune de nos communes, ce qui est le résultat correct.
+
+Le contrôle reste en place comme garde-fou.
+
+**Convention à garder en tête** : répartir les dépenses d'un EPT au prorata de la
+population est une convention, pas une mesure. Un EPT ne dépense pas uniformément par
+habitant sur son territoire. C'est la clé la plus neutre disponible sans données
+infra-EPT ; elle est signalée comme telle sur la page « méthode » du site.
+
+### Tests
+
+**83 tests dbt**, tous verts. Outre les tests de schéma (unicité `(code_insee, annee)`,
+non-nullité des agrégats principaux, valeurs acceptées, intégrité référentielle vers
+`dim_commune`), quatre tests singuliers portent sur le fond :
+
+- `assert_couverture_commune_annee` : 36 × 11 lignes, sans doublon ni manque ;
+- `assert_population_complete` : une population légale strictement positive pour chaque
+  commune et chaque année ;
+- `assert_parts_age_bornees` : toutes les parts de population dans [0, 1] ;
+- `assert_bornes_kpi` : 11 bornes de vraisemblance appliquées aux deux tables de faits
+  (population > 0, capacité de désendettement entre −50 et 100 ans, dépenses de
+  fonctionnement entre 200 et 10 000 €/hab, etc.) ;
+- `assert_controle_qualite` : les écarts aux références extérieures sous leurs seuils.
+
+### Validation : nos KPI contre les ratios légaux publiés par la DGFiP
+
+Le contrôle le plus fort disponible, parce qu'il est automatique et porte sur
+**396 points par ratio** (36 communes × 11 exercices). Nous recalculons chaque ratio à
+partir du montant et de la population, sans jamais reprendre le ratio publié : la
+comparaison valide donc à la fois la formule, le choix de l'agrégat et le choix de la
+population.
+
+| Ratio | Points comparés | Écart relatif maximal |
+|---|---|---|
+| Dépenses réelles de fonctionnement / hab | 396 | **0,0008 %** |
+| Dépenses d'équipement brut / hab | 396 | **0,005 %** |
+| Encours de dette / hab | 396 | **0,036 %** |
+| DGF / hab | 396 | 3,73 % sur un seul point — Puteaux 2020, qui ne touche que 0,13 €/hab de DGF : c'est l'arrondi au centime. Écart absolu maximal sur ce ratio : 0,005 €/hab. |
+
+### Validation : Vanves contre le BP 2026 (critère de l'étape 5)
+
+Référence : budget primitif 2026 de Vanves, page 4, ratios légaux, population 28 794.
+Les valeurs sont versionnées dans le seed `dbt/seeds/ref_ratios_legaux.csv` avec, pour
+chacune, un drapeau `comparable` et son motif. Le mart `fct_controle_qualite` calcule les
+écarts à chaque `dbt build`.
+
+| Ratio du BP 2026 | BP 2026 | Calculé 2024 | Écart | Calculé 2025 | Écart | Verdict |
+|---|---|---|---|---|---|---|
+| Population totale | 28 794 | 28 303 | −1,7 % | **28 794** | **0,0 %** | ✅ identique |
+| Dépenses réelles de fonct. /hab | 1 734,67 € | 1 755,59 € | +1,2 % | 1 693,14 € | −2,4 % | ✅ dans ±15 % |
+| Encours de dette /hab | 853,69 € | 947,93 € | +11,0 % | **853,83 €** | **+0,0 %** | ✅ dans ±15 % |
+| Personnel en % des DRF | 53,99 % | 52,71 % | −2,4 % | 54,15 % | +0,3 % | ✅ dans ±15 % |
+| Équipement brut /hab | 270,60 € | 373,35 € | +38,0 % | 592,85 € | +119 % | ⚠️ écart expliqué |
+| Épargne brute en % des RRF | 2,74 % | 8,89 % | +225 % | 9,84 % | +259 % | ⚠️ écart expliqué |
+| Potentiel fiscal /hab | 1 303 € | 1 692,69 € | +29,9 % | 1 747,17 € | +34,1 % | ⚠️ écart expliqué |
+| DGF /hab | 134,10 € | 51,80 € | −61,4 % | 45,36 € | −66,2 % | ❌ écart non expliqué |
+
+**Quatre ratios sur huit sont dans la tolérance de ±15 %**, dont la population et l'encours
+de dette par habitant qui tombent exactement sur la valeur du BP pour 2025. Explications
+des écarts :
+
+- **Équipement brut** : poste structurellement volatil. Vanves a dépensé entre 131 €/hab
+  (2016) et 593 €/hab (2025) selon l'année ; un budget primitif chiffre un programme
+  prévisionnel, pas une réalisation. Par ailleurs le `equip` DGFiP inclut les subventions
+  d'équipement versées (vérifié sur 2023 : OFGL 7 782 118 € + 101 536 € = 7 883 654 € =
+  `equip` DGFiP).
+- **Épargne brute en % des RRF** : écart attendu par construction. Un budget primitif est
+  voté avec une épargne prévisionnelle minimale — les recettes réelles se révèlent en
+  cours d'exercice. L'épargne constatée de Vanves est de 8,9 % en 2024 et 9,9 % en 2025.
+- **Potentiel fiscal** : le « 1 303 € » du BP est la **moyenne de la strate**, pas le
+  potentiel fiscal de Vanves. Vérification : l'OFGL publie « Potentiel fiscal moyen de la
+  strate » 2025 = **1 303,22 €/hab**, à 22 centimes du chiffre du BP, tandis que le
+  potentiel fiscal 4 taxes de Vanves vaut 1 747,17 €/hab.
+- **DGF** : **écart non résolu**. Notre valeur (45,36 €/hab en 2025, soit 1 306 047 €) est
+  identique au centime dans trois sources indépendantes : le champ `dgf` des comptes
+  individuels DGFiP, l'agrégat « Dotation globale de fonctionnement » de l'OFGL, et la
+  variable « Montant Dotation DGF » de `dotations-communes`. Les 134,10 €/hab du BP
+  (3,86 M€) correspondent probablement à un agrégat plus large du type « dotations et
+  participations », mais aucune combinaison testée ne tombe exactement sur cette valeur
+  (DGF + autres dotations = 163,6 €/hab ; moyenne de strate de la DGF = 205,6 €/hab).
+  À vérifier sur le document d'origine, cf. `RAPPORT.md`.
